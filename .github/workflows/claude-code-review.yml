@@ -39,12 +39,8 @@ jobs:
 
       - name: Run Claude Code Review
         id: claude-review
-        uses: anthropics/claude-code-action@v2
+        uses: anthropics/claude-code-action@v1
         with:
-          use_bedrock: "true"
-          max_thinking_tokens: 1024
-          max_output_tokens: 16000  # Increased for comprehensive reviews
-          prompt_caching: "true"
           prompt: |
             Please review this pull request and provide feedback on:
             - Code quality and best practices
@@ -57,10 +53,12 @@ jobs:
             
             Be specific and provide code suggestions where applicable.
             Use `gh pr comment` with your Bash tool to leave your review as a comment on the PR.
+          
+          # Configure for AWS Bedrock
+          claude_args: '--model us.anthropic.claude-opus-4-1-20250805-v1:0 --max-tokens 16000'
         env:
-          CLAUDE_CODE_USE_BEDROCK: "1"
+          CLAUDE_CODE_USE_BEDROCK: "true"
           AWS_REGION: us-east-2
+          AWS_DEFAULT_REGION: us-east-2
           ANTHROPIC_MODEL: "us.anthropic.claude-opus-4-1-20250805-v1:0"
           ANTHROPIC_SMALL_FAST_MODEL: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
-          CLAUDE_CODE_MAX_OUTPUT_TOKENS: "16000"  # Increased output tokens
-          MAX_THINKING_TOKENS: "1024"
