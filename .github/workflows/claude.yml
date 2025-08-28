@@ -17,34 +17,45 @@ jobs:
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+    
     runs-on: ubuntu-latest
+    timeout-minutes: 15  # Prevent runaway costs
+    
     permissions:
-      contents: read
-      pull-requests: read
-      issues: read
-      id-token: write
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write  # Required for OIDC
       actions: read # Required for Claude to read CI results on PRs
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::119175775298:role/pmm-claude-bedrock-github-actions
+          aws-region: us-east-2
+          role-session-name: ClaudeBot-${{ github.run_id }}
 
       - name: Run Claude Code
         id: claude
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@v2
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          
-          # This is an optional setting that allows Claude to read CI results on PRs
-          additional_permissions: |
-            actions: read
-
-          # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
-          # prompt: 'Update the pull request description to include a summary of changes.'
-
-          # Optional: Add claude_args to customize behavior and configuration
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://docs.anthropic.com/en/docs/claude-code/sdk#command-line for available options
-          # claude_args: '--model claude-opus-4-1-20250805 --allowed-tools Bash(gh pr:*)'
+          use_bedrock: "true"
+          max_thinking_tokens: 1024
+          max_output_tokens: 16000  # Increased for comprehensive responses
+          prompt_caching: "true"
+          temperature: 0.3  # Lower temperature for more consistent responses
+        env:
+          CLAUDE_CODE_USE_BEDROCK: "1"
+          AWS_REGION: us-east-2
+          ANTHROPIC_MODEL: "us.anthropic.claude-opus-4-1-20250805-v1:0"
+          ANTHROPIC_SMALL_FAST_MODEL: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+          CLAUDE_CODE_MAX_OUTPUT_TOKENS: "16000"  # Increased output tokens
+          MAX_THINKING_TOKENS: "1024"
+          DISABLE_PROMPT_CACHING: "0"
 
