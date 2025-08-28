@@ -49,4 +49,4 @@ The `.github/workflows/test-oidc.yml` workflow tests the OIDC authentication by:
 ## Related Repositories
 
 - [percona/pmm](https://github.com/percona/pmm) - Main PMM repository
-- [percona/pmm-qa](https://github.com/percona/pmm-qa) - PMM QA repository
+- [percona/pmm-qa](https://github.com/percona/pmm-qa) - PMM QA repository# Testing OIDC after policy update
