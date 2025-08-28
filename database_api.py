@@ -18,6 +18,9 @@ import random
 import time
 from datetime import datetime
 import logging
+import requests  # Added for webhook functionality
+import redis  # Added for Redis operations
+import jwt  # Added for JWT operations
 import re
 
 app = Flask(__name__)
@@ -312,6 +315,184 @@ class DatabaseAPI:
 
 # Global database instance (singleton anti-pattern)
 db_api = DatabaseAPI()
+
+# Additional vulnerable endpoints
+@app.route('/api/export_all', methods=['GET'])
+def export_all_data():
+    """Export entire database - No authentication required"""
+    # No access control - anyone can export all data
+    format_type = request.args.get('format', 'json')
+    
+    if format_type == 'csv':
+        # CSV injection vulnerability
+        data = db_api.fetch_all_data()
+        csv_data = "id,username,password,email\n"
+        for row in data:
+            # No escaping of special characters
+            csv_data += f"{row[0]},{row[1]},{row[2]},{row[3]}\n"
+        return csv_data, 200, {'Content-Type': 'text/csv'}
+    
+    # Default to JSON (exposes all data)
+    return jsonify(db_api.fetch_all_data())
+
+@app.route('/api/webhook', methods=['POST'])
+def process_webhook():
+    """Process incoming webhooks - SSRF vulnerability"""
+    webhook_url = request.json.get('callback_url')
+    data = request.json.get('data')
+    
+    # SSRF vulnerability - no validation of webhook_url
+    # Could be used to access internal services
+    response = requests.post(webhook_url, json=data, timeout=10)
+    
+    # Reflecting user input without sanitization
+    return f"Webhook processed: {response.text}", 200
+
+@app.route('/api/template', methods=['POST'])
+def render_template():
+    """Template rendering - SSTI vulnerability"""
+    from jinja2 import Template
+    
+    # Server-Side Template Injection
+    user_template = request.json.get('template')
+    data = request.json.get('data', {})
+    
+    # Dangerous - allows arbitrary code execution
+    template = Template(user_template)
+    rendered = template.render(data)
+    
+    return rendered, 200
+
+@app.route('/api/ldap_auth', methods=['POST'])
+def ldap_authenticate():
+    """LDAP authentication - Injection vulnerability"""
+    username = request.json.get('username')
+    password = request.json.get('password')
+    
+    # LDAP injection vulnerability
+    ldap_filter = f"(&(uid={username})(userPassword={password}))"
+    
+    # Simulated LDAP query (vulnerable to injection)
+    return jsonify({"authenticated": True, "filter": ldap_filter})
+
+@app.route('/api/redis_cache', methods=['POST'])
+def redis_operation():
+    """Redis operations - Command injection"""
+    import redis
+    
+    key = request.json.get('key')
+    value = request.json.get('value')
+    operation = request.json.get('operation')
+    
+    # Redis command injection
+    r = redis.Redis(host='localhost', port=6379, db=0)
+    
+    # Dangerous - allows arbitrary Redis commands
+    if operation == 'set':
+        r.set(key, value)  # No validation
+    elif operation == 'get':
+        return r.get(key)
+    elif operation == 'eval':
+        # Extremely dangerous - Lua script execution
+        script = request.json.get('script')
+        r.eval(script, 0)  # Arbitrary Lua code execution
+    
+    return jsonify({"status": "success"})
+
+@app.route('/api/graphql', methods=['POST'])
+def graphql_endpoint():
+    """GraphQL endpoint - Various vulnerabilities"""
+    query = request.json.get('query')
+    
+    # GraphQL vulnerabilities:
+    # 1. No query depth limiting
+    # 2. No query complexity analysis
+    # 3. No rate limiting
+    # 4. Introspection enabled in production
+    
+    # Dangerous execution of arbitrary GraphQL
+    result = execute_graphql(query)  # No validation
+    return jsonify(result)
+
+@app.route('/api/jwt_decode', methods=['POST'])
+def decode_jwt():
+    """JWT decoding - Algorithm confusion attack"""
+    import jwt
+    
+    token = request.json.get('token')
+    algorithm = request.json.get('algorithm', 'HS256')
+    
+    # JWT algorithm confusion vulnerability
+    # Accepting user-specified algorithm
+    try:
+        # No signature verification if algorithm is 'none'
+        decoded = jwt.decode(token, options={"verify_signature": False})
+        return jsonify(decoded)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+@app.route('/api/nosql', methods=['POST'])
+def nosql_query():
+    """NoSQL query - Injection vulnerability"""
+    from pymongo import MongoClient
+    
+    client = MongoClient('localhost', 27017)
+    db = client['metrics_db']
+    collection = db['metrics']
+    
+    # NoSQL injection vulnerability
+    query = request.json.get('query', {})
+    
+    # Dangerous - allows arbitrary query operators
+    results = collection.find(query)
+    return jsonify(list(results))
+
+@app.route('/api/prototype', methods=['POST'])
+def prototype_pollution():
+    """Prototype pollution vulnerability simulation"""
+    obj = {}
+    user_input = request.json
+    
+    # Prototype pollution pattern (in JavaScript context)
+    for key, value in user_input.items():
+        # Dangerous - modifying object prototype
+        obj[key] = value
+        
+        # Simulating prototype pollution
+        if key == '__proto__':
+            # This would affect all objects in JavaScript
+            pass
+    
+    return jsonify(obj)
+
+@app.route('/api/timing', methods=['POST'])
+def timing_attack_vulnerable():
+    """Timing attack vulnerable endpoint"""
+    provided_token = request.json.get('token')
+    actual_token = "secret_token_12345"
+    
+    # Timing attack vulnerability - early return
+    for i in range(len(actual_token)):
+        if i >= len(provided_token) or provided_token[i] != actual_token[i]:
+            return jsonify({"valid": False}), 403
+        time.sleep(0.01)  # Makes timing differences more obvious
+    
+    return jsonify({"valid": True})
+
+def execute_graphql(query):
+    """Dummy GraphQL executor with vulnerabilities"""
+    # Simulated GraphQL execution
+    return {"data": {"users": ["admin", "user1", "user2"]}}
+
+# Enable CORS with overly permissive settings
+@app.after_request
+def after_request(response):
+    # CORS misconfiguration
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', '*')
+    response.headers.add('Access-Control-Allow-Methods', '*')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    return response
 
 # Debug mode enabled in production
 if __name__ == '__main__':
