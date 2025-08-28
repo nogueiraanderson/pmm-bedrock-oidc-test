@@ -41,16 +41,31 @@ jobs:
           aws-region: us-east-2
           role-session-name: ClaudeBot-${{ github.run_id }}
 
-      - name: Run Claude Code
+      - name: Setup environment for Bedrock
+        run: |
+          echo "Setting up Bedrock environment variables..."
+          echo "AWS_REGION=us-east-2" >> $GITHUB_ENV
+          echo "AWS_DEFAULT_REGION=us-east-2" >> $GITHUB_ENV
+          echo "ANTHROPIC_API_KEY=bedrock" >> $GITHUB_ENV
+          echo "CLAUDE_CODE_USE_BEDROCK=true" >> $GITHUB_ENV
+          
+          # Test Bedrock access
+          aws bedrock list-foundation-models --region us-east-2 --query "modelSummaries[?contains(modelId, 'claude')].modelId" --output text || true
+
+      - name: Run Claude Code with Bedrock
         id: claude
         uses: anthropics/claude-code-action@v1
-        with:
-          # Configure for AWS Bedrock
-          claude_args: '--model us.anthropic.claude-opus-4-1-20250805-v1:0 --max-tokens 16000'
         env:
+          # Bedrock configuration
+          ANTHROPIC_API_KEY: bedrock
           CLAUDE_CODE_USE_BEDROCK: "true"
           AWS_REGION: us-east-2
           AWS_DEFAULT_REGION: us-east-2
+          
+          # Model configuration
           ANTHROPIC_MODEL: "us.anthropic.claude-opus-4-1-20250805-v1:0"
           ANTHROPIC_SMALL_FAST_MODEL: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
-
+          
+          # Claude settings
+          CLAUDE_CODE_MAX_TOKENS: "16000"
+          CLAUDE_CODE_TEMPERATURE: "0.3"
