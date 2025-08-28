@@ -37,28 +37,62 @@ jobs:
           aws-region: us-east-2
           role-session-name: ClaudeReview-${{ github.run_id }}
 
+      - name: Setup environment for Bedrock
+        run: |
+          echo "Setting up Bedrock environment variables..."
+          echo "AWS_REGION=us-east-2" >> $GITHUB_ENV
+          echo "AWS_DEFAULT_REGION=us-east-2" >> $GITHUB_ENV
+          echo "ANTHROPIC_API_KEY=bedrock" >> $GITHUB_ENV
+          echo "CLAUDE_CODE_USE_BEDROCK=true" >> $GITHUB_ENV
+          
+          # Verify Bedrock access
+          echo "Verifying Bedrock access..."
+          aws bedrock list-foundation-models --region us-east-2 --query "modelSummaries[?contains(modelId, 'claude')].modelId" --output text || true
+
       - name: Run Claude Code Review
         id: claude-review
         uses: anthropics/claude-code-action@v1
         with:
           prompt: |
-            Please review this pull request and provide feedback on:
-            - Code quality and best practices
-            - Potential bugs or issues
-            - Security concerns (SQL injection, XSS, hardcoded credentials, etc.)
-            - Performance considerations
-            - Test coverage
-            - Memory leaks or resource management issues
-            - Error handling
+            You are reviewing a pull request. Please analyze the code changes and provide comprehensive feedback on:
             
-            Be specific and provide code suggestions where applicable.
-            Use `gh pr comment` with your Bash tool to leave your review as a comment on the PR.
-          
-          # Configure for AWS Bedrock
-          claude_args: '--model us.anthropic.claude-opus-4-1-20250805-v1:0 --max-tokens 16000'
+            1. **Security Issues**:
+               - SQL injection vulnerabilities
+               - XSS vulnerabilities
+               - Command injection
+               - Path traversal
+               - Insecure deserialization
+               - Hardcoded credentials
+               - Weak cryptography
+               - Authentication/authorization flaws
+            
+            2. **Code Quality**:
+               - Best practices violations
+               - Code smells
+               - Performance issues
+               - Memory leaks
+               - Race conditions
+               - Error handling
+            
+            3. **Specific Recommendations**:
+               - Provide specific code fixes where applicable
+               - Suggest better alternatives
+               - Highlight critical vs minor issues
+            
+            Please use `gh pr comment` to post your review as a comment on the PR.
+            Format your response using markdown for better readability.
+            Be thorough but constructive in your feedback.
         env:
+          # Bedrock configuration
+          ANTHROPIC_API_KEY: bedrock
           CLAUDE_CODE_USE_BEDROCK: "true"
           AWS_REGION: us-east-2
           AWS_DEFAULT_REGION: us-east-2
+          
+          # Model configuration
           ANTHROPIC_MODEL: "us.anthropic.claude-opus-4-1-20250805-v1:0"
           ANTHROPIC_SMALL_FAST_MODEL: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+          
+          # Claude settings
+          CLAUDE_CODE_MAX_TOKENS: "16000"
+          CLAUDE_CODE_TEMPERATURE: "0.3"
