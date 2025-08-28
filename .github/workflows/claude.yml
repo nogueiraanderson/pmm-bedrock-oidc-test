@@ -57,20 +57,18 @@ jobs:
           echo "Testing Bedrock access..."
           aws bedrock list-inference-profiles --region us-east-2 --max-results 10 || true
 
+      - name: Setup Bedrock environment variables
+        run: |
+          echo "Setting up Bedrock environment variables..."
+          echo "ANTHROPIC_API_KEY=bedrock" >> $GITHUB_ENV
+          echo "CLAUDE_CODE_USE_BEDROCK=true" >> $GITHUB_ENV
+          echo "AWS_REGION=us-east-2" >> $GITHUB_ENV
+          echo "AWS_DEFAULT_REGION=us-east-2" >> $GITHUB_ENV
+          echo "ANTHROPIC_MODEL=us.anthropic.claude-opus-4-1-20250805-v1:0" >> $GITHUB_ENV
+          echo "ANTHROPIC_SMALL_FAST_MODEL=us.anthropic.claude-3-5-haiku-20241022-v1:0" >> $GITHUB_ENV
+          echo "CLAUDE_CODE_MAX_TOKENS=16000" >> $GITHUB_ENV
+          echo "CLAUDE_CODE_TEMPERATURE=0.3" >> $GITHUB_ENV
+
       - name: Run Claude Code with Bedrock
         id: claude
         uses: anthropics/claude-code-action@v1
-        env:
-          # Bedrock configuration
-          ANTHROPIC_API_KEY: bedrock
-          CLAUDE_CODE_USE_BEDROCK: "true"
-          AWS_REGION: us-east-2
-          AWS_DEFAULT_REGION: us-east-2
-          
-          # Model configuration
-          ANTHROPIC_MODEL: "us.anthropic.claude-opus-4-1-20250805-v1:0"
-          ANTHROPIC_SMALL_FAST_MODEL: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
-          
-          # Claude settings
-          CLAUDE_CODE_MAX_TOKENS: "16000"
-          CLAUDE_CODE_TEMPERATURE: "0.3"
